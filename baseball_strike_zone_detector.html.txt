@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>野球自動判定ツール v2.0</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --dark: #0f172a;
+            --dark-secondary: #1e293b;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: rgba(255, 255, 255, 0.1);
+            --glass: rgba(255, 255, 255, 0.05);
+            --shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, var(--dark) 0%, var(--dark-secondary) 100%);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .title {
+            font-size: 3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            font-weight: 400;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 30px;
+            min-height: 600px;
+        }
+
+        .video-section {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 24px;
+            box-shadow: var(--shadow);
+            position: relative;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            background: #000;
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        #videoElement {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .canvas-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .drawing-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 20;
+            cursor: crosshair;
+        }
+
+        .video-controls {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn.secondary {
+            background: linear-gradient(135deg, var(--secondary), #059669);
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn.secondary:hover {
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn.danger {
+            background: linear-gradient(135deg, var(--danger), #dc2626);
+            box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn.danger:hover {
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .panel {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .panel-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .mode-selector {
+            display: flex;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 20px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .mode-btn.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+        }
+
+        .zone-tools {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .zone-info {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .zone-info h4 {
+            color: var(--secondary);
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .zone-info p {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .detection-status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            margin-bottom: 16px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.active {
+            background: var(--secondary);
+        }
+
+        .status-indicator.detecting {
+            background: var(--warning);
+            animation: blink 0.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+
+        .result-display {
+            text-align: center;
+            padding: 24px;
+            border-radius: 16px;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin: 16px 0;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid transparent;
+        }
+
+        .result-strike {
+            background: linear-gradient(135deg, var(--danger), #dc2626);
+            color: white;
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
+        }
+
+        .result-ball {
+            background: linear-gradient(135deg, var(--secondary), #059669);
+            color: white;
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+        }
+
+        .result-default {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            border-color: var(--border);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .judgment-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .instructions {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(217, 119, 6, 0.1));
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .instructions h4 {
+            color: var(--warning);
+            font-weight: 600;
+            margin-bottom: 12px;
+            font-size: 1rem;
+        }
+
+        .instructions ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .instructions li {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 6px;
+            padding-left: 16px;
+            position: relative;
+            line-height: 1.4;
+        }
+
+        .instructions li::before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: var(--warning);
+        }
+
+        @media (max-width: 1024px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .title {
+                font-size: 2.5rem;
+            }
+            
+            .video-container {
+                height: 400px;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 16px;
+            }
+            
+            .title {
+                font-size: 2rem;
+            }
+            
+            .video-container {
+                height: 300px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .strike-zone-path {
+            fill: rgba(239, 68, 68, 0.2);
+            stroke: #ef4444;
+            stroke-width: 3;
+            stroke-dasharray: 5, 5;
+            animation: dash 1s linear infinite;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -10;
+            }
+        }
+
+        .ball-trail {
+            fill: none;
+            stroke: #fbbf24;
+            stroke-width: 4;
+            stroke-linecap: round;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">⚾ Smart Strike Zone</h1>
+            <p class="subtitle">AI搭載野球自動判定システム v2.0</p>
+        </div>
+
+        <div class="instructions">
+            <h4>🎯 使用方法</h4>
+            <ul>
+                <li>カメラを開始して、バッターの後ろ側から撮影してください</li>
+                <li>描画モードでストライクゾーンを手描きするか、四角形で設定</li>
+                <li>自動検出モードをONにすると、AIがボールを自動追跡・判定します</li>
+                <li>手動モードでは、キーボードのSまたはBで判定できます</li>
+            </ul>
+        </div>
+
+        <div class="main-layout">
+            <div class="video-section">
+                <div class="video-container">
+                    <video id="videoElement" autoplay muted playsinline></video>
+                    <canvas id="overlayCanvas" class="canvas-overlay"></canvas>
+                    <canvas id="drawingCanvas" class="drawing-overlay"></canvas>
+                </div>
+                <div class="video-controls">
+                    <button id="startCamera" class="btn">
+                        📹 カメラ開始
+                    </button>
+                    <button id="stopCamera" class="btn danger" disabled>
+                        ⏹️ カメラ停止
+                    </button>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <div class="panel">
+                    <div class="panel-title">🎯 検出モード</div>
+                    <div class="mode-selector">
+                        <button class="mode-btn active" data-mode="manual">手動判定</button>
+                        <button class="mode-btn" data-mode="auto">自動検出</button>
+                    </div>
+                    <div class="detection-status">
+                        <div class="status-indicator" id="statusIndicator"></div>
+                        <span id="statusText">待機中</span>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-title">📐 ストライクゾーン設定</div>
+                    <div class="zone-tools">
+                        <button id="drawZone" class="btn secondary">✏️ 手描き</button>
+                        <button id="rectZone" class="btn secondary">⬜ 四角形</button>
+                        <button id="clearZone" class="btn danger">🗑️ クリア</button>
+                    </div>
+                    <div class="zone-info">
+                        <h4>💡 ゾーン設定のコツ</h4>
+                        <p>手描きモード: マウスやタッチでストライクゾーンの輪郭を描く<br>
+                        四角形モード: ドラッグして四角形のゾーンを作成</p>
+                    </div>
+                </div>
+
+                <div class="panel" id="manualControls">
+                    <div class="panel-title">⚖️ 手動判定</div>
+                    <div class="judgment-controls">
+                        <button id="callStrike" class="btn danger">ストライク</button>
+                        <button id="callBall" class="btn secondary">ボール</button>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-title">📊 判定結果</div>
+                    <div class="result-display result-default" id="resultDisplay">
+                        判定待ち
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-title">📈 統計データ</div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number" id="strikeCount">0</div>
+                            <div class="stat-label">ストライク</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="ballCount">0</div>
+                            <div class="stat-label">ボール</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="totalCount">0</div>
+                            <div class="stat-label">総投球数</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="strikeRate">0%</div>
+                            <div class="stat-label">ストライク率</div>
+                        </div>
+                    </div>
+                    <button id="resetStats" class="btn secondary" style="width: 100%; margin-top: 16px;">
+                        📊 統計リセット
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class SmartStrikeZoneDetector {
+            constructor() {
+                this.video = document.getElementById('videoElement');
+                this.overlayCanvas = document.getElementById('overlayCanvas');
+                this.drawingCanvas = document.getElementById('drawingCanvas');
+                this.overlayCtx = this.overlayCanvas.getContext('2d');
+                this.drawingCtx = this.drawingCanvas.getContext('2d');
+                
+                this.stream = null;
+                this.mode = 'manual';
+                this.isDrawing = false;
+                this.drawMode = 'none';
+                this.strikeZone = [];
+                this.stats = { strikes: 0, balls: 0, total: 0 };
+                
+                // 自動検出用
+                this.previousFrame = null;
+                this.ballPosition = null;
+                this.ballTrail = [];
+                this.detectionActive = false;
+                
+                this.initializeElements();
+                this.setupEventListeners();
+                this.setupCanvas();
+            }
+
+            initializeElements() {
+                this.startBtn = document.getElementById('startCamera');
+                this.stopBtn = document.getElementById('stopCamera');
+                this.drawZoneBtn = document.getElementById('drawZone');
+                this.rectZoneBtn = document.getElementById('rectZone');
+                this.clearZoneBtn = document.getElementById('clearZone');
+                this.callStrikeBtn = document.getElementById('callStrike');
+                this.callBallBtn = document.getElementById('callBall');
+                this.resetStatsBtn = document.getElementById('resetStats');
+                this.resultDisplay = document.getElementById('resultDisplay');
+                this.statusIndicator = document.getElementById('statusIndicator');
+                this.statusText = document.getElementById('statusText');
+                this.manualControls = document.getElementById('manualControls');
+            }
+
+            setupEventListeners() {
+                // Camera controls
+                this.startBtn.addEventListener('click', () => this.startCamera());
+                this.stopBtn.addEventListener('click', () => this.stopCamera());
+                
+                // Mode selector
+                document.querySelectorAll('.mode-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => this.switchMode(e.target.dataset.mode));
+                });
+                
+                // Zone controls
+                this.drawZoneBtn.addEventListener('click', () => this.setDrawMode('draw'));
+                this.rectZoneBtn.addEventListener('click', () => this.setDrawMode('rect'));
+                this.clearZoneBtn.addEventListener('click', () => this.clearZone());
+                
+                // Manual judgment
+                this.callStrikeBtn.addEventListener('click', () => this.callStrike());
+                this.callBallBtn.addEventListener('click', () => this.callBall());
+                this.resetStatsBtn.addEventListener('click', () => this.resetStats());
+                
+                // Drawing events
+                this.drawingCanvas.addEventListener('mousedown', (e) => this.startDrawing(e));
+                this.drawingCanvas.addEventListener('mousemove', (e) => this.draw(e));
+                this.drawingCanvas.addEventListener('mouseup', () => this.stopDrawing());
+                
+                // Touch events
+                this.drawingCanvas.addEventListener('touchstart', (e) => this.startDrawing(e.touches[0]));
+                this.drawingCanvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    this.draw(e.touches[0]);
+                });
+                this.drawingCanvas.addEventListener('touchend', () => this.stopDrawing());
+                
+                // Keyboard shortcuts
+                document.addEventListener('keydown', (e) => {
+                    if (e.key.toLowerCase() === 's') this.callStrike();
+                    if (e.key.toLowerCase() === 'b') this.callBall();
+                });
+
+                // Video loaded event
+                this.video.addEventListener('loadedmetadata', () => {
+                    this.setupCanvas();
+                });
+            }
+
+            setupCanvas() {
+                const rect = this.video.getBoundingClientRect();
+                this.overlayCanvas.width = this.video.videoWidth || rect.width;
+                this.overlayCanvas.height = this.video.videoHeight || rect.height;
+                this.drawingCanvas.width = this.overlayCanvas.width;
+                this.drawingCanvas.height = this.overlayCanvas.height;
+            }
+
+            async startCamera() {
+                try {
+                    this.stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                            facingMode: 'environment'
+                        }
+                    });
+                    
+                    this.video.srcObject = this.stream;
+                    this.startBtn.disabled = true;
+                    this.stopBtn.disabled = false;
+                    
+                    this.video.addEventListener('loadeddata', () => {
+                        this.setupCanvas();
+                        if (this.mode === 'auto') {
+                            this.startAutoDetection();
+                        }
+                    });
+                    
+                } catch (error) {
+                    console.error('カメラエラー:', error);
+                    this.showResult('カメラエラー', 'default');
+                }
+            }
+
+            stopCamera() {
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                    this.video.srcObject = null;
+                    this.startBtn.disabled = false;
+                    this.stopBtn.disabled = true;
+                    this.stopAutoDetection();
+                }
+            }
+
+            switchMode(mode) {
+                this.mode = mode;
+                document.querySelectorAll('.mode-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.mode === mode);
+                });
+                
+                this.manualControls.style.display = mode === 'manual' ? 'block' : 'none';
+                
+                if (mode === 'auto' && this.video.srcObject) {
+                    this.startAutoDetection();
+                } else {
+                    this.stopAutoDetection();
+                }
+                
+                this.updateStatus();
+            }
+
+            setDrawMode(mode) {
+                this.drawMode = mode;
+                this.drawingCanvas.style.pointerEvents = mode === 'none' ? 'none' : 'auto';
+                
+                // Update button styles
+                document.querySelectorAll('#drawZone, #rectZone').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                
+                if (mode === 'draw') this.drawZoneBtn.classList.add('active');
+                if (mode === 'rect') this.rectZoneBtn.classList.add('active');
+            }
+
+            startDrawing(e) {
+                if (this.drawMode === 'none') return;
+                
+                this.isDrawing = true;
+                const rect = this.drawingCanvas.getBoundingClientRect();
+                const x = ((e.clientX - rect.left) / rect.width) * this.drawingCanvas.width;
+                const y = ((e.clientY - rect.top) / rect.height) * this.drawingCanvas.height;
+                
+                if (this.drawMode === 'draw') {
+                    this.strikeZone = [{ x, y }];
+                } else if (this.drawMode === 'rect') {
+                    this.rectStart = { x, y };
+                }
+            }
+
+            draw(e) {
+                if (!this.isDrawing || this.drawMode === 'none') return;
+                
+                const rect = this.drawingCanvas.getBoundingClientRect();
+                const x = ((e.clientX - rect.left) / rect.width) * this.drawingCanvas.width;
+                const y = ((e.clientY - rect.top) / rect.height) * this.drawingCanvas.height;
+                
+                if (this.drawMode === 'draw') {
+                    this.strikeZone.push({ x, y });
+                    this.redrawZone();
+                } else if (this.drawMode === 'rect') {
+                    this.strikeZone = [
+                        this.rectStart,
+                        { x: this.rectStart.x, y },
+                        { x, y },
+                        { x, y: this.rectStart.y }
+                    ];
+                    this.redrawZone();
+                }
+            }
+
+            stopDrawing() {
+                this.isDrawing = false;
+                if (this.drawMode === 'draw' && this.strikeZone.length > 2) {
+                    // Close the path
+                    this.strikeZone.push(this.strikeZone[0]);
+                }
+                this.setDrawMode('none');
+            }
+
+            redrawZone() {
+                this.drawingCtx.clearRect(0, 0, this.drawingCanvas.width, this.drawingCanvas.height);
+                
+                if (this.strikeZone.length > 1) {
+                    this.drawingCtx.strokeStyle = '#ef4444';
+                    this.drawingCtx.fillStyle = 'rgba(239, 68, 68, 0.2)';
+                    this.drawingCtx.lineWidth = 3;
+                    this.drawingCtx.setLineDash([5, 5]);
+                    
+                    this.drawingCtx.beginPath();
+                    this.drawingCtx.moveTo(this.strikeZone[0].x, this.strikeZone[0].y);
+                    
+                    for (let i = 1; i < this.strikeZone.length; i++) {
+                        this.drawingCtx.lineTo(this.strikeZone[i].x, this.strikeZone[i].y);
+                    }
+                    
+                    if (this.strikeZone.length > 2) {
+                        this.drawingCtx.closePath();
+                        this.drawingCtx.fill();
+                    }
+                    
+                    this.drawingCtx.stroke();
+                }
+            }
+
+            clearZone() {
+                this.strikeZone = [];
+                this.drawingCtx.clearRect(0, 0, this.drawingCanvas.width, this.drawingCanvas.height);
+            }
+
+            startAutoDetection() {
+                this.detectionActive = true;
+                this.updateStatus();
+                this.detectBall();
+            }
+
+            stopAutoDetection() {
+                this.detectionActive = false;
+                this.updateStatus();
+            }
+
+            detectBall() {
+                if (!this.detectionActive || !this.video.videoWidth) {
+                    return;
+                }
+
+                // Simplified ball detection using motion detection
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = this.video.videoWidth;
+                canvas.height = this.video.videoHeight;
+                
+                ctx.drawImage(this.video, 0, 0);
+                const currentFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                
+                if (this.previousFrame) {
+                    const motion = this.detectMotion(currentFrame, this.previousFrame);
+                    if (motion) {
+                        this.ballPosition = motion;
+                        this.ballTrail.push(motion);
+                        
+                        // Keep only recent trail points
+                        if (this.ballTrail.length > 10) {
+                            this.ballTrail.shift();
+                        }
+                        
+                        // Check if ball crossed the strike zone
+                        if (this.ballTrail.length > 5) {
+                            this.checkBallCrossing();
+                        }
+                        
+                        this.drawBallTrail();
+                    }
+                }
+                
+                this.previousFrame = currentFrame;
+                
+                if (this.detectionActive) {
+                    requestAnimationFrame(() => this.detectBall());
+                }
+            }
+
+            detectMotion(current, previous) {
+                // Simplified motion detection
+                const threshold = 50;
+                let maxDiff = 0;
+                let motionX = 0, motionY = 0;
+                
+                const sampleSize = 20; // Sample every 20 pixels for performance
+                
+                for (let y = 0; y < current.height; y += sampleSize) {
+                    for (let x = 0; x < current.width; x += sampleSize) {
+                        const i = (y * current.width + x) * 4;
+                        
+                        const currentGray = (current.data[i] + current.data[i + 1] + current.data[i + 2]) / 3;
+                        const previousGray = (previous.data[i] + previous.data[i + 1] + previous.data[i + 2]) / 3;
+                        
+                        const diff = Math.abs(currentGray - previousGray);
+                        
+                        if (diff > threshold && diff > maxDiff) {
+                            maxDiff = diff;
+                            motionX = x;
+                            motionY = y;
+                        }
+                    }
+                }
+                
+                return maxDiff > threshold ? { x: motionX, y: motionY, intensity: maxDiff } : null;
+            }
+
+            checkBallCrossing() {
+                if (this.strikeZone.length < 3 || this.ballTrail.length < 5) return;
+                
+                // Check if the ball trail crosses the strike zone
+                const recentTrail = this.ballTrail.slice(-5);
+                let crossedZone = false;
+                
+                for (let i = 0; i < recentTrail.length - 1; i++) {
+                    const start = recentTrail[i];
+                    const end = recentTrail[i + 1];
+                    
+                    if (this.lineIntersectsPolygon(start, end, this.strikeZone)) {
+                        crossedZone = true;
+                        break;
+                    }
+                }
+                
+                if (crossedZone) {
+                    // Determine if it's in the strike zone
+                    const lastPosition = recentTrail[recentTrail.length - 1];
+                    const isInZone = this.pointInPolygon(lastPosition, this.strikeZone);
+                    
+                    if (isInZone) {
+                        this.callStrike(true);
+                    } else {
+                        this.callBall(true);
+                    }
+                    
+                    // Clear trail after judgment
+                    setTimeout(() => {
+                        this.ballTrail = [];
+                    }, 1000);
+                }
+            }
+
+            lineIntersectsPolygon(start, end, polygon) {
+                for (let i = 0; i < polygon.length - 1; i++) {
+                    const p1 = polygon[i];
+                    const p2 = polygon[i + 1];
+                    
+                    if (this.lineIntersect(start.x, start.y, end.x, end.y, p1.x, p1.y, p2.x, p2.y)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            lineIntersect(x1, y1, x2, y2, x3, y3, x4, y4) {
+                const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+                if (denom === 0) return false;
+                
+                const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+                const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+                
+                return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+            }
+
+            pointInPolygon(point, polygon) {
+                let inside = false;
+                for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                    if (((polygon[i].y > point.y) !== (polygon[j].y > point.y)) &&
+                        (point.x < (polygon[j].x - polygon[i].x) * (point.y - polygon[i].y) / (polygon[j].y - polygon[i].y) + polygon[i].x)) {
+                        inside = !inside;
+                    }
+                }
+                return inside;
+            }
+
+            drawBallTrail() {
+                this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
+                
+                if (this.ballTrail.length > 1) {
+                    // Draw trail
+                    this.overlayCtx.strokeStyle = '#fbbf24';
+                    this.overlayCtx.lineWidth = 4;
+                    this.overlayCtx.lineCap = 'round';
+                    this.overlayCtx.globalAlpha = 0.8;
+                    
+                    this.overlayCtx.beginPath();
+                    this.overlayCtx.moveTo(this.ballTrail[0].x, this.ballTrail[0].y);
+                    
+                    for (let i = 1; i < this.ballTrail.length; i++) {
+                        this.overlayCtx.lineTo(this.ballTrail[i].x, this.ballTrail[i].y);
+                    }
+                    
+                    this.overlayCtx.stroke();
+                    this.overlayCtx.globalAlpha = 1;
+                }
+                
+                // Draw current ball position
+                if (this.ballPosition) {
+                    this.overlayCtx.fillStyle = '#fbbf24';
+                    this.overlayCtx.beginPath();
+                    this.overlayCtx.arc(this.ballPosition.x, this.ballPosition.y, 8, 0, Math.PI * 2);
+                    this.overlayCtx.fill();
+                    
+                    // Add glow effect
+                    this.overlayCtx.shadowColor = '#fbbf24';
+                    this.overlayCtx.shadowBlur = 15;
+                    this.overlayCtx.beginPath();
+                    this.overlayCtx.arc(this.ballPosition.x, this.ballPosition.y, 4, 0, Math.PI * 2);
+                    this.overlayCtx.fill();
+                    this.overlayCtx.shadowBlur = 0;
+                }
+            }
+
+            updateStatus() {
+                if (this.mode === 'auto' && this.detectionActive) {
+                    this.statusIndicator.className = 'status-indicator detecting';
+                    this.statusText.textContent = 'AI自動検出中...';
+                } else if (this.mode === 'auto') {
+                    this.statusIndicator.className = 'status-indicator active';
+                    this.statusText.textContent = '自動モード待機中';
+                } else {
+                    this.statusIndicator.className = 'status-indicator';
+                    this.statusText.textContent = '手動判定モード';
+                }
+            }
+
+            callStrike(isAuto = false) {
+                this.stats.strikes++;
+                this.stats.total++;
+                this.showResult('⚾ ストライク！', 'strike');
+                this.updateStats();
+                
+                if (isAuto) {
+                    this.statusText.textContent = 'AI判定: ストライク';
+                }
+            }
+
+            callBall(isAuto = false) {
+                this.stats.balls++;
+                this.stats.total++;
+                this.showResult('🥎 ボール！', 'ball');
+                this.updateStats();
+                
+                if (isAuto) {
+                    this.statusText.textContent = 'AI判定: ボール';
+                }
+            }
+
+            showResult(text, type) {
+                this.resultDisplay.textContent = text;
+                this.resultDisplay.className = `result-display result-${type}`;
+                
+                setTimeout(() => {
+                    this.resultDisplay.textContent = '判定待ち';
+                    this.resultDisplay.className = 'result-display result-default';
+                    if (this.mode === 'auto') {
+                        this.updateStatus();
+                    }
+                }, 2500);
+            }
+
+            updateStats() {
+                document.getElementById('strikeCount').textContent = this.stats.strikes;
+                document.getElementById('ballCount').textContent = this.stats.balls;
+                document.getElementById('totalCount').textContent = this.stats.total;
+                
+                const strikeRate = this.stats.total > 0 ? 
+                    Math.round((this.stats.strikes / this.stats.total) * 100) : 0;
+                document.getElementById('strikeRate').textContent = `${strikeRate}%`;
+            }
+
+            resetStats() {
+                this.stats = { strikes: 0, balls: 0, total: 0 };
+                this.updateStats();
+                this.showResult('📊 統計リセット完了', 'default');
+            }
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            new SmartStrikeZoneDetector();
+        });
+
+        // Add some visual enhancements
+        document.addEventListener('mousemove', (e) => {
+            const cursor = document.createElement('div');
+            cursor.style.position = 'fixed';
+            cursor.style.left = e.clientX + 'px';
+            cursor.style.top = e.clientY + 'px';
+            cursor.style.width = '4px';
+            cursor.style.height = '4px';
+            cursor.style.background = '#6366f1';
+            cursor.style.borderRadius = '50%';
+            cursor.style.pointerEvents = 'none';
+            cursor.style.zIndex = '9999';
+            cursor.style.transition = 'all 0.1s ease';
+            
+            document.body.appendChild(cursor);
+            
+            setTimeout(() => {
+                cursor.remove();
+            }, 100);
+        });
+    </script>
+</body>
+</html>
